@@ -1,17 +1,16 @@
 import random
 from copy import copy
 
-
-OK = 1
-NO_GOOD = 2
-CONNECTION_REQUEST = 3
-CONNECTION_SUCCESSFUL = 4
-INDIRECT = 5
-NO_SOLUTION = 6
+OK = 'ok'
+NO_GOOD = 'no_good'
+CONNECTION_REQUEST = 'connection_request'
+CONNECTION_SUCCESSFUL = 'connection_successful'
+INDIRECT = 'indirect'
+NO_SOLUTION = 'no_solution'
 
 
 class Agent:
-    def __init__(self, index, options, verbose=False):
+    def __init__(self, index, options, verbose=False, initial_assignment=None):
         self.index = index
         self.options = options
         self.neighbors = []
@@ -22,6 +21,7 @@ class Agent:
         self.messages = []
         self.no_sol = False
         self.verbose = verbose
+        self.initial_assignment = initial_assignment
 
     def set_neighbors(self, neighbors):
         self.neighbors = neighbors
@@ -30,15 +30,15 @@ class Agent:
         self.print_info(message)
         self.messages.append(message)
 
-    def process_messages(self, initial_assignment=None):
+    def process_messages(self):
         self.print_info('=' * 100)
         self.print_info(f'Processing Agent {self.index}')
         self.print_info('=' * 100)
 
         if self.number is None:
             # Assign self random number
-            if initial_assignment is not None:
-                self.number = initial_assignment
+            if self.initial_assignment is not None:
+                self.number = self.initial_assignment
             else:
                 self.number = random.choice(self.options)
             self.print_info(f'Agent {self.index} assigned itself {self.number}')
@@ -48,12 +48,10 @@ class Agent:
                     self.print_info(f'Sent agent {neighbor.index} message {(self.index, self.number)}')
                     neighbor.message((OK, (self.index, self.number)))
 
-        if self.no_sol:
-            self.messages = []
-            return
-
         # Process received messages
         for message_type, message_content in self.messages:
+            if self.no_sol:
+                continue
             # Process Ok? Messages
             if message_type == OK:
                 self.print_info(f'Agent {self.index} processing ok message {message_content}')
@@ -68,8 +66,7 @@ class Agent:
                     self.agent_view.append((agent_index, updated_number))
                 self.print_info(f'Agent {self.index} agent_view is now {self.agent_view}')
                 self.check_agent_view()
-                continue
-            if message_type == NO_GOOD:
+            elif message_type == NO_GOOD:
                 source_index, no_good = message_content
                 self.print_info(f'Agent {self.index} processing no_good {no_good}')
                 self.no_goods.append(no_good)
@@ -81,52 +78,28 @@ class Agent:
                         self.print_info(f'Agent {self.index} sending connection_request to Agent {index} through Agent '
                                         f'{self.neighbors[0].index}')
                         self.neighbors[0].message((CONNECTION_REQUEST, (self.index, index, [self.index], [self.index]
-                                                                          )))
+                                                                        )))
                     else:
                         print('ERROR: Agent has no neighbors')
                         exit()
                 self.check_agent_view()
-                sent = False
-                for agent in self.neighbors:
-                    if agent.index == source_index:
-                        agent.message((OK, (self.index, self.number)))
-                        sent = True
-                        break
+                sent = self.send_direct(source_index, (OK, (self.index, self.number)))
                 if not sent:
-                    for index, path in self.indirect_neighbors:
-                        if index == source_index:
-                            self.send_indirect(path, (OK, (self.index, self.number)))
-                            sent = True
-                            break
+                    sent = self.send_indirect(source_index, (OK, (self.index, self.number)))
                 if not sent:
                     print('ERROR: Source Index is not a neighbor')
                     exit()
-                continue
-            if message_type == INDIRECT:
+            elif message_type == INDIRECT:
                 path, message = message_content
-                found = False
-                for agent in self.neighbors:
-                    if agent.index == path[0]:
-                        found = True
-                        if len(path) == 1:
-                            agent.message(message)
-                        else:
-                            agent.message((INDIRECT, (path[1:], message)))
-                        break
-                if not found:
-                    print(f'ERROR: Agent missing on path {path}')
-                    exit()
-                continue
-            if message_type == CONNECTION_REQUEST:
+                self.send_indirect_path(path, message)
+            elif message_type == CONNECTION_REQUEST:
                 self.print_info(f'Agent {self.index} processing connection_request')
                 source_index, target_index, path, visited = message_content
                 if self.index == target_index:
                     self.indirect_neighbors.append((source_index, path[::-1]))
-                    for agent in self.neighbors:
-                        if agent.index == path[-1]:
-                            agent.message((INDIRECT, (path[::-1][1:], (CONNECTION_SUCCESSFUL,
-                                                                         [*path[1:], self.index]))))
-                    self.send_indirect(path[::-1], (OK, (self.index, self.number)))
+                    self.send_indirect_path(path[::-1], (CONNECTION_SUCCESSFUL,
+                                                         [*path[1:], self.index]))
+                    self.send_indirect_path(path[::-1], (OK, (self.index, self.number)))
                     continue
                 if self.index == source_index:
                     print(f'ERROR: Connection Request Failed, '
@@ -135,43 +108,42 @@ class Agent:
                 sent = False
                 for agent in self.neighbors:
                     if agent.index not in visited:
-                        self.print_info(f'Agent {self.index} transfering connection_request with target Agent {target_index}'
-                              f' to Agent {agent.index}')
+                        self.print_info(
+                            f'Agent {self.index} transfering connection_request with target Agent {target_index}'
+                            f' to Agent {agent.index}')
                         agent.message((CONNECTION_REQUEST, (source_index, target_index, [*path, self.index],
-                                                              [*visited, self.index])))
+                                                            [*visited, self.index])))
                         sent = True
                 if not sent:
-                    for agent in self.neighbors:
-                        if agent.index == path[-1]:
-                            self.print_info(
-                                f'Agent {self.index} transfering connection_request with target Agent {target_index}'
-                                f' to Agent {agent.index}')
-                            agent.message((CONNECTION_REQUEST, (source_index, target_index,
-                                                                  path[:-1], [*visited, self.index])))
-                            sent = True
+                    sent = self.send_direct(path[-1], (CONNECTION_REQUEST, (source_index, target_index,
+                                                                            path[:-1], [*visited, self.index])))
+                    if sent:
+                        self.print_info(
+                            f'Agent {self.index} transferring connection_request with target Agent {target_index}'
+                            f' to Agent {path[-1]}')
                 if not sent:
                     print('ERROR: Connection Request failed unexpectedly')
                     exit()
-                continue
-            if message_type == CONNECTION_SUCCESSFUL:
+            elif message_type == CONNECTION_SUCCESSFUL:
                 path = message_content
                 index = path[-1]
                 self.indirect_neighbors.append((index, path))
                 self.print_info(f'Connection between Agent {self.index} and Agent {index} successful')
-                continue
-            if message_type == NO_SOLUTION:
+            elif message_type == NO_SOLUTION:
                 self.no_sol = True
                 for agent in self.neighbors:
                     if not agent.no_sol:
                         agent.message((NO_SOLUTION, None))
                 break
-            print('ERROR: Invalid message type')
-            exit()
+            else:
+                print('ERROR: Invalid message type')
+                exit()
         self.messages = []
 
     def check_agent_view(self):
         if not self.is_consistent(self.number):
-            self.print_info(f'Agent {self.index} with number {self.number} is inconsistent with agent_view {self.agent_view}')
+            self.print_info(
+                f'Agent {self.index} with number {self.number} is inconsistent with agent_view {self.agent_view}')
             new_value = None
             for number in self.options:
                 if self.is_consistent(number):
@@ -189,9 +161,10 @@ class Agent:
                         neighbor.message((OK, (self.index, self.number)))
                 for index, path in self.indirect_neighbors:
                     if index > self.index:
-                        self.send_indirect(path, (OK, (self.index, self.number)))
+                        self.send_indirect_path(path, (OK, (self.index, self.number)))
         else:
-            self.print_info(f'Agent {self.index} with number {self.number} is consistent with agent_view {self.agent_view}')
+            self.print_info(
+                f'Agent {self.index} with number {self.number} is consistent with agent_view {self.agent_view}')
 
     def backtrack(self):
         # More efficient versions of ABT try to find a minimal no_good here
@@ -202,37 +175,40 @@ class Agent:
                 agent.message((NO_SOLUTION, None))
             return
 
-        max_index, corresponding_number = max(no_good, key=lambda p: p[0])
-        res_agent = None
-        res_agent_path = None
-        for agent in self.neighbors:
-            if agent.index == max_index:
-                res_agent = agent
-                break
-        if res_agent:
-            self.print_info(f'Agent {self.index} sending no_good {no_good} to Agent {max_index}')
-            res_agent.message((NO_GOOD, (self.index, no_good)))
-        else:
-            for index, path in self.indirect_neighbors:
-                if index == max_index:
-                    res_agent_path = path
-            if res_agent_path:
-                for agent in self.neighbors:
-                    if agent.index == res_agent_path[0]:
-                        agent.message((INDIRECT, (res_agent_path[1:], (NO_GOOD, (self.index, no_good)))))
-                        break
-            else:
-                print('ERROR: No_good contains non-neighbor')
+        max_index, _ = max(no_good, key=lambda p: p[0])
+        self.print_info(f'Agent {self.index} sending no_good {no_good} to Agent {max_index}')
+        sent = self.send_direct(max_index, (NO_GOOD, (self.index, no_good)))
+        if not sent:
+            sent = self.send_indirect(max_index, (NO_GOOD, (self.index, no_good)))
+        if not sent:
+            print('ERROR: No_good contains non-neighbor')
         for index, number in self.agent_view:
             if index == max_index:
                 self.agent_view.remove((index, number))
                 break
         self.check_agent_view()
 
-    def send_indirect(self, path, message):
+    def send_direct(self, index, message):
+        for agent in self.neighbors:
+            if agent.index == index:
+                agent.message(message)
+                return True
+        return False
+
+    def send_indirect(self, index, message):
+        for idx, path in self.indirect_neighbors:
+            if idx == index:
+                self.send_indirect_path(path, message)
+                return True
+        return False
+
+    def send_indirect_path(self, path, message):
         for agent in self.neighbors:
             if agent.index == path[0]:
-                agent.message((INDIRECT, (path[1:], message)))
+                if len(path) == 1:
+                    agent.message(message)
+                else:
+                    agent.message((INDIRECT, (path[1:], message)))
                 return
         print(f'ERROR: Indirect Message Failed. Path = {path}, Message = {message}')
 

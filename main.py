@@ -8,6 +8,7 @@ from Agent import Agent
 
 
 NUM_COLORS = 3
+WINDOW_OUTLINE = 25
 
 
 def main():
@@ -41,7 +42,7 @@ def main():
 
     agents = []
     for i in range(len(graph_matrix)):
-        agents.append(Agent(i, list(range(NUM_COLORS)), verbose=True))
+        agents.append(Agent(i, list(range(NUM_COLORS)), verbose=True, initial_assignment=0))
     for i in range(len(graph_matrix)):
         neighbors = []
         for j in range(len(graph_matrix)):
@@ -69,7 +70,7 @@ def main():
             [-1] if agent.no_sol else [agent.number] if agent.number is not None else list(range(NUM_COLORS))
             for agent in agents],
                                      center=(screen_width / 2, screen_height / 2),
-                                     width=screen_width, height=screen_height,
+                                     width=screen_width - WINDOW_OUTLINE * 2, height=screen_height - WINDOW_OUTLINE * 2,
                                      rel_positions=positions)
         pygame.display.flip()
 

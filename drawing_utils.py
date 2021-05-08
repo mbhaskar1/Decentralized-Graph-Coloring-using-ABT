@@ -3,11 +3,9 @@ import pygame.gfxdraw
 import math
 from math import cos, sin
 
-WINDOW_OUTLINE = 25
-
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (147, 112, 219), (160, 82, 45), (255, 105, 180)]
 
 
 def draw_arrow(screen, pos1, pos2, color=BLACK, width=10):
@@ -41,8 +39,8 @@ def draw_graph(identifier, screen, graph_matrix, center, width, height, rel_posi
         node_radii = node_func_args['radius']
     else:
         node_radii = 50
-    width -= node_radii * 2 + WINDOW_OUTLINE * 2
-    height -= node_radii * 2 + WINDOW_OUTLINE * 2
+    width -= node_radii * 2
+    height -= node_radii * 2
     if rel_positions:
         rel_max = (max(pos[0] for pos in rel_positions), max(pos[1] for pos in rel_positions))
         rel_min = (min(pos[0] for pos in rel_positions), min(pos[1] for pos in rel_positions))

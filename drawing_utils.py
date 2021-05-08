@@ -7,12 +7,13 @@ WINDOW_OUTLINE = 25
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
 
 
 def draw_arrow(screen, pos1, pos2, color=BLACK, width=10):
     draw_line(screen, pos1, pos2, color, width)
     magnitude = math.sqrt((pos2[0] - pos1[0]) ** 2 + (pos2[1] - pos1[1]) ** 2)
-    direction = ((pos2[0]-pos1[0]) / magnitude, (pos2[1]-pos1[1]) / magnitude)
+    direction = ((pos2[0] - pos1[0]) / magnitude, (pos2[1] - pos1[1]) / magnitude)
     perpendicular = (direction[1], -direction[0])
     base = (pos2[0] - 3 * direction[0] * width, pos2[1] - 3 * direction[1] * width)
     point1 = (base[0] + 1.2 * perpendicular[0] * width, base[1] + 1.2 * perpendicular[1] * width)
@@ -22,7 +23,8 @@ def draw_arrow(screen, pos1, pos2, color=BLACK, width=10):
     pygame.gfxdraw.filled_polygon(screen, [pos2, point1, point2], color)
 
 
-def draw_node(screen, center, radius=50, width=5, outline_color=BLACK, interior_color=WHITE, interior_func=None, args=None):
+def draw_node(screen, center, radius=50, width=5, outline_color=BLACK, interior_color=WHITE, interior_func=None,
+              args=None):
     draw_filled_circle(screen, center, radius, interior_color, outline_color=outline_color, width=width)
 
     if interior_func:
@@ -31,12 +33,9 @@ def draw_node(screen, center, radius=50, width=5, outline_color=BLACK, interior_
         interior_func(screen, center, radius, outline_color, args)
 
 
-COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
-
-
-def draw_graph(screen, graph_matrix, center, width, height, rel_positions=None,
+def draw_graph(identifier, screen, graph_matrix, center, width, height, rel_positions=None,
                outline_color=BLACK, outline_thickness=5,
-               node_func=draw_node, node_func_args=None):
+               node_func=draw_node, node_func_args=None, node_fun_args_per_agent=None):
     num_objects = len(graph_matrix)
     if node_func_args and 'radius' in node_func_args:
         node_radii = node_func_args['radius']
@@ -47,13 +46,13 @@ def draw_graph(screen, graph_matrix, center, width, height, rel_positions=None,
     if rel_positions:
         rel_max = (max(pos[0] for pos in rel_positions), max(pos[1] for pos in rel_positions))
         rel_min = (min(pos[0] for pos in rel_positions), min(pos[1] for pos in rel_positions))
-        rel_center = ((rel_max[0] + rel_min[0])/2, (rel_max[1] + rel_min[1])/2)
+        rel_center = ((rel_max[0] + rel_min[0]) / 2, (rel_max[1] + rel_min[1]) / 2)
         rel_width = rel_max[0] - rel_min[0]
         rel_height = rel_max[1] - rel_min[1]
-        if (width/rel_width) * rel_height <= height:
-            scale = width/rel_width
+        if (width / rel_width) * rel_height <= height:
+            scale = width / rel_width
         else:
-            scale = height/rel_height
+            scale = height / rel_height
         positions = rel_positions
         for i in range(len(positions)):
             pos = positions[i]
@@ -69,15 +68,35 @@ def draw_graph(screen, graph_matrix, center, width, height, rel_positions=None,
                 draw_line(screen, positions[i], positions[j], outline_color, outline_thickness)
     for i in range(num_objects):
         if node_func_args:
-            node_func(screen, positions[i], **node_func_args)
+            if node_fun_args_per_agent:
+                node_func(screen, positions[i], **node_func_args, **(node_fun_args_per_agent[i]))
+            else:
+                node_func(screen, positions[i], **node_func_args)
         else:
-            node_func(screen, positions[i])
+            if node_fun_args_per_agent:
+                node_func(screen, positions[i], **(node_fun_args_per_agent[i]))
+            else:
+                node_func(screen, positions[i])
 
 
-def draw_csp_node(screen, center, colors, radius=50, width=5, outline_color=BLACK, interior_color=WHITE):
+def draw_csp_graph(identifier, screen, graph_matrix, node_colors, center, width, height, rel_positions=None,
+                   node_background_color=WHITE, outline_color=BLACK, outline_thickness=5, ID=None):
+    draw_graph(identifier, screen, graph_matrix, center, width, height, rel_positions=rel_positions,
+               outline_color=outline_color, outline_thickness=outline_thickness, node_func=draw_csp_node,
+               node_func_args={'interior_color': node_background_color},
+               node_fun_args_per_agent=[{'colors': node_colors[i]} for i in range(len(node_colors))])
+
+
+def draw_csp_node(screen, center, colors=None, radius=50, width=5, outline_color=BLACK, interior_color=WHITE):
+    if colors is None:
+        colors = [0]
     if len(colors) == 1:
-        draw_node(screen, center, radius=radius, width=width,
-                  outline_color=outline_color, interior_color=COLORS[colors[0]])
+        if colors[0] == -1:
+            draw_node(screen, center, radius=radius, width=width,
+                      outline_color=outline_color, interior_color=BLACK)
+        else:
+            draw_node(screen, center, radius=radius, width=width,
+                      outline_color=outline_color, interior_color=COLORS[colors[0]])
     else:
         draw_node(screen, center, radius=radius, width=width,
                   outline_color=outline_color, interior_color=interior_color,
@@ -87,9 +106,9 @@ def draw_csp_node(screen, center, colors, radius=50, width=5, outline_color=BLAC
 # args is color indices
 def csp_node_interior(screen, center, radius, color, args):
     num_sides = len(args)
-    polygon = get_polygon_points(num_sides, center, radius/2)
+    polygon = get_polygon_points(num_sides, center, radius / 2)
     for i in range(num_sides):
-        draw_filled_circle(screen, polygon[i], radius/5, COLORS[args[i]])
+        draw_filled_circle(screen, polygon[i], radius / 5, COLORS[args[i]])
 
 
 def draw_filled_polygon(screen, points, color):

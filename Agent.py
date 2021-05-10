@@ -19,6 +19,7 @@ class Agent:
         self.agent_view = []
         self.no_goods = []
         self.messages = []
+        self.new_messages = []
         self.no_sol = False
         self.verbose = verbose
         self.initial_assignment = initial_assignment
@@ -35,6 +36,8 @@ class Agent:
         self.print_info(f'Processing Agent {self.index}')
         self.print_info('=' * 100)
 
+        self.new_messages = []
+
         if self.number is None:
             # Assign self random number
             if self.initial_assignment is not None:
@@ -46,7 +49,7 @@ class Agent:
             for neighbor in self.neighbors:
                 if neighbor.index > self.index:
                     self.print_info(f'Sent agent {neighbor.index} message {(self.index, self.number)}')
-                    neighbor.message((OK, (self.index, self.number)))
+                    self.new_messages.append({'source': self, 'agent': neighbor, 'message': (OK, (self.index, self.number))})
 
         # Process received messages
         for message_type, message_content in self.messages:
@@ -77,8 +80,10 @@ class Agent:
                     if len(self.neighbors):
                         self.print_info(f'Agent {self.index} sending connection_request to Agent {index} through Agent '
                                         f'{self.neighbors[0].index}')
-                        self.neighbors[0].message((CONNECTION_REQUEST, (self.index, index, [self.index], [self.index]
-                                                                        )))
+                        self.new_messages.append({'source': self, 'agent': self.neighbors[0],
+                                                  'message': (
+                                                      CONNECTION_REQUEST, (self.index, index, [self.index], [self.index]
+                                                                           ))})
                     else:
                         print('ERROR: Agent has no neighbors')
                         exit()
@@ -109,10 +114,13 @@ class Agent:
                 for agent in self.neighbors:
                     if agent.index not in visited:
                         self.print_info(
-                            f'Agent {self.index} transfering connection_request with target Agent {target_index}'
+                            f'Agent {self.index} transferring connection_request with target Agent {target_index}'
                             f' to Agent {agent.index}')
-                        agent.message((CONNECTION_REQUEST, (source_index, target_index, [*path, self.index],
-                                                            [*visited, self.index])))
+                        self.new_messages.append({'source': self, 'agent': agent,
+                                                  'message': (
+                                                      CONNECTION_REQUEST,
+                                                      (source_index, target_index, [*path, self.index],
+                                                       [*visited, self.index]))})
                         sent = True
                 if not sent:
                     sent = self.send_direct(path[-1], (CONNECTION_REQUEST, (source_index, target_index,
@@ -133,12 +141,13 @@ class Agent:
                 self.no_sol = True
                 for agent in self.neighbors:
                     if not agent.no_sol:
-                        agent.message((NO_SOLUTION, None))
+                        self.new_messages.append({'source': self, 'agent': agent, 'message': (NO_SOLUTION, None)})
                 break
             else:
                 print('ERROR: Invalid message type')
                 exit()
         self.messages = []
+        return self.new_messages
 
     def check_agent_view(self):
         if not self.is_consistent(self.number):
@@ -158,7 +167,8 @@ class Agent:
                 self.number = new_value
                 for neighbor in self.neighbors:
                     if neighbor.index > self.index:
-                        neighbor.message((OK, (self.index, self.number)))
+                        self.new_messages.append({'source': self, 'agent': neighbor,
+                                                  'message': (OK, (self.index, self.number))})
                 for index, path in self.indirect_neighbors:
                     if index > self.index:
                         self.send_indirect_path(path, (OK, (self.index, self.number)))
@@ -172,7 +182,8 @@ class Agent:
 
         if len(no_good) == 0:
             for agent in self.neighbors:
-                agent.message((NO_SOLUTION, None))
+                self.new_messages.append({'source': self, 'agent': agent,
+                                          'message': (NO_SOLUTION, None)})
             return
 
         max_index, _ = max(no_good, key=lambda p: p[0])
@@ -191,7 +202,7 @@ class Agent:
     def send_direct(self, index, message):
         for agent in self.neighbors:
             if agent.index == index:
-                agent.message(message)
+                self.new_messages.append({'source': self, 'agent': agent, 'message': message})
                 return True
         return False
 
@@ -206,9 +217,9 @@ class Agent:
         for agent in self.neighbors:
             if agent.index == path[0]:
                 if len(path) == 1:
-                    agent.message(message)
+                    self.new_messages.append({'source': self, 'agent': agent, 'message': message})
                 else:
-                    agent.message((INDIRECT, (path[1:], message)))
+                    self.new_messages.append({'source': self, 'agent': agent, 'message': (INDIRECT, (path[1:], message))})
                 return
         print(f'ERROR: Indirect Message Failed. Path = {path}, Message = {message}')
 

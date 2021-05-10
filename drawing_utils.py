@@ -2,10 +2,43 @@ import pygame
 import pygame.gfxdraw
 import math
 from math import cos, sin
+from dataclasses import dataclass
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (147, 112, 219), (160, 82, 45), (255, 105, 180)]
+MESSAGE_COLORS = {'ok': (50, 205, 50),
+                  'no_good': (255, 99, 71),
+                  'connection_request': (0, 128, 128),
+                  'connection_successful': (25, 25, 112),
+                  'no_solution': (0, 0, 0)}
+GRAPH_MESSAGE_ANIMATION = 'graph_message_animation'
+
+
+class GraphMessageAnimation:
+    def __init__(self, identifier, source_index, target_index, message_type, speed=5, delay=0, callback=None,
+                 callback_params=None):
+        self.identifier = identifier
+        self.animation_type = GRAPH_MESSAGE_ANIMATION
+        self.source_index = source_index
+        self.target_index = target_index
+        self.message_type = message_type
+        self.speed = speed
+        self.time = -delay
+        self.callback = callback
+        self.callback_params = callback_params
+
+
+animations = []
+
+
+def step():
+    for animation in animations:
+        animation.time += 1
+
+
+def add_animation(animation):
+    animations.append(animation)
 
 
 def draw_arrow(screen, pos1, pos2, color=BLACK, width=10):
@@ -64,6 +97,27 @@ def draw_graph(identifier, screen, graph_matrix, center, width, height, rel_posi
         for j in range(i + 1, num_objects):
             if graph_matrix[i][j]:
                 draw_line(screen, positions[i], positions[j], outline_color, outline_thickness)
+    for animation in animations:
+        if animation.identifier == identifier and animation.animation_type == GRAPH_MESSAGE_ANIMATION and animation.time >= 0:
+            i = animation.source_index
+            j = animation.target_index
+            vector = (positions[j][0] - positions[i][0], positions[j][1] - positions[i][1])
+            magnitude = math.sqrt(vector[0] ** 2 + vector[1] ** 2)
+            dx = animation.speed * vector[0] / magnitude
+            dy = animation.speed * vector[1] / magnitude
+            if dx:
+                max_time = math.floor(vector[0] / dx)
+            else:
+                max_time = math.floor(vector[1] / dy)
+            if animation.time <= max_time:
+                final_position = (positions[i][0] + dx * animation.time, positions[i][1] + dy * animation.time)
+                draw_line(screen, final_position, (
+                    final_position[0] + 4 * vector[0] / magnitude, final_position[1] + 4 * vector[1] / magnitude),
+                          color=MESSAGE_COLORS[animation.message_type], width=outline_thickness * 2.5)
+            else:
+                if animation.callback:
+                    animation.callback(*animation.callback_params)
+                animations.remove(animation)
     for i in range(num_objects):
         if node_func_args:
             if node_fun_args_per_agent:
@@ -78,11 +132,11 @@ def draw_graph(identifier, screen, graph_matrix, center, width, height, rel_posi
 
 
 def draw_csp_graph(identifier, screen, graph_matrix, node_colors, center, width, height, rel_positions=None,
-                   node_background_color=WHITE, outline_color=BLACK, outline_thickness=5, ID=None):
+                   node_background_color=WHITE, outline_color=BLACK, outline_thickness=5, node_radius=50, ID=None):
     draw_graph(identifier, screen, graph_matrix, center, width, height, rel_positions=rel_positions,
                outline_color=outline_color, outline_thickness=outline_thickness, node_func=draw_csp_node,
                node_func_args={'interior_color': node_background_color},
-               node_fun_args_per_agent=[{'colors': node_colors[i]} for i in range(len(node_colors))])
+               node_fun_args_per_agent=[{'colors': node_colors[i], 'radius': node_radius} for i in range(len(node_colors))])
 
 
 def draw_csp_node(screen, center, colors=None, radius=50, width=5, outline_color=BLACK, interior_color=WHITE):

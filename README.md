@@ -15,3 +15,5 @@ In the visualization, messages of different colors represent different kinds of 
 * **Turqoise:** "Connection Request" messages - searches for a specific agent to add an indirect link with
 * **Dark Blue:** "Connection Successful" messages - returns to agent that sent the connection request to complete indirect link
 * **Black:** "No solution" messages - broadcasts to all neighboring agents that there is no solution
+
+In order to run the visualization, run ``main.py``. Change ``EXAMPLE`` and ``NUM_COLORS`` in ``main.py`` to test different example graph coloring problems. If trying to create a new example, store the graph matrix in ``graph_matrix`` and the relative positions of each of the nodes in ``positions``.

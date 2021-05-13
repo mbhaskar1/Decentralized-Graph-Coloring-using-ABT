@@ -22,6 +22,7 @@ def main():
     clock = pygame.time.Clock()
 
     initial_assignments = None
+    node_radius = 50
     if EXAMPLE == 1:
         graph_matrix = [
             [0, 1, 1, 0, 0, 0],
@@ -41,7 +42,6 @@ def main():
         ]
         for i in range(len(positions)):
             positions[i] = (positions[i][0], -positions[i][1])
-        node_radius = 50
     elif EXAMPLE == 2:
         connections = [
             [4, 2],
@@ -115,7 +115,6 @@ def main():
             (1, -1),
             (0, 0)
         ]
-        node_radius = 50
         initial_assignments = [0, 1, 1]
 
     agents = []

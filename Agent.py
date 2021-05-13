@@ -50,7 +50,8 @@ class Agent:
             for neighbor in self.neighbors:
                 if neighbor.index > self.index:
                     self.print_info(f'Sent agent {neighbor.index} message {(self.index, self.number)}')
-                    self.new_messages.append({'source': self, 'agent': neighbor, 'message': (OK, (self.index, self.number))})
+                    self.new_messages.append(
+                        {'source': self, 'agent': neighbor, 'message': (OK, (self.index, self.number))})
 
         # Process received messages
         for message_type, message_content in self.messages:
@@ -101,7 +102,8 @@ class Agent:
                 self.send_indirect_path(path, message)
             elif message_type == CONNECTION_REQUEST:
                 source_index, target_index, path, visited = message_content
-                self.print_info(f'Agent {self.index} processing connection_request - target={target_index}, source={source_index}, path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
+                self.print_info(
+                    f'Agent {self.index} processing connection_request - target={target_index}, source={source_index}, path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
                 if self.index == target_index:
                     self.indirect_neighbors.append((source_index, path[::-1]))
                     self.send_indirect_path(path[::-1], (CONNECTION_SUCCESSFUL,
@@ -114,7 +116,7 @@ class Agent:
                     exit()
                 sent = False
                 for agent in self.neighbors:
-                    if agent.index not in visited:
+                    if agent.index == target_index:
                         self.print_info(
                             f'Agent {self.index} transferring connection_request with target Agent {target_index}'
                             f' to Agent {agent.index} - path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
@@ -124,6 +126,26 @@ class Agent:
                                                       (source_index, target_index, [*path, self.index],
                                                        [*visited, self.index]))})
                         sent = True
+                if not sent:
+                    for index, neighbor_path in self.indirect_neighbors:
+                        if index == target_index:
+                            self.send_indirect_path(neighbor_path, (CONNECTION_REQUEST,
+                                                                    (source_index, target_index,
+                                                                     [*path, self.index, *(neighbor_path[:-1])],
+                                                                     [*visited, self.index, *(neighbor_path[:-1])])))
+                            sent = True
+                if not sent:
+                    for agent in self.neighbors:
+                        if agent.index not in visited:
+                            self.print_info(
+                                f'Agent {self.index} transferring connection_request with target Agent {target_index}'
+                                f' to Agent {agent.index} - path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
+                            self.new_messages.append({'source': self, 'agent': agent,
+                                                      'message': (
+                                                          CONNECTION_REQUEST,
+                                                          (source_index, target_index, [*path, self.index],
+                                                           [*visited, self.index]))})
+                            sent = True
                 if not sent:
                     sent = self.send_direct(path[-1], (CONNECTION_REQUEST, (source_index, target_index,
                                                                             path[:-1], [*visited, self.index])))
@@ -223,7 +245,8 @@ class Agent:
                 if len(path) == 1:
                     self.new_messages.append({'source': self, 'agent': agent, 'message': message})
                 else:
-                    self.new_messages.append({'source': self, 'agent': agent, 'message': (INDIRECT, (path[1:], message))})
+                    self.new_messages.append(
+                        {'source': self, 'agent': agent, 'message': (INDIRECT, (path[1:], message))})
                 return
         print(f'ERROR: Indirect Message Failed. Path = {path}, Message = {message}')
         exit()

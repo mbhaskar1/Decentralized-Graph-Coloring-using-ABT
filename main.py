@@ -7,7 +7,7 @@ import ctypes
 from Agent import Agent
 from drawing_utils import GraphMessageAnimation
 
-NUM_COLORS = 2
+NUM_COLORS = 3
 WINDOW_OUTLINE = 25
 EXAMPLE = 2
 
@@ -123,7 +123,8 @@ def main():
         if initial_assignments is not None:
             agents.append(Agent(i, list(range(NUM_COLORS)), verbose=True, initial_assignment=initial_assignments[i]))
         else:
-            agents.append(Agent(i, list(range(NUM_COLORS)), verbose=True, initial_assignment=0))
+            agents.append(
+                Agent(i, list(range(NUM_COLORS)), verbose=True, initial_assignment=random.randint(0, NUM_COLORS - 1)))
     for i in range(len(graph_matrix)):
         neighbors = []
         for j in range(len(graph_matrix)):

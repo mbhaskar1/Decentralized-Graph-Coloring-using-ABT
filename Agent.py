@@ -23,6 +23,7 @@ class Agent:
         self.no_sol = False
         self.verbose = verbose
         self.initial_assignment = initial_assignment
+        self.connection_requests = []
 
     def set_neighbors(self, neighbors):
         self.neighbors = neighbors
@@ -75,7 +76,7 @@ class Agent:
                 self.no_goods.append(no_good)
                 new_connections = set(x[0] for x in no_good) - (set(
                     x[0] for x in self.indirect_neighbors).union(set(x.index for x in self.neighbors)).union(
-                    {self.index}))
+                    {self.index})).union(set(self.connection_requests))
                 for index in new_connections:
                     if len(self.neighbors):
                         self.print_info(f'Agent {self.index} sending connection_request to Agent {index} through Agent '
@@ -84,6 +85,7 @@ class Agent:
                                                   'message': (
                                                       CONNECTION_REQUEST, (self.index, index, [self.index], [self.index]
                                                                            ))})
+                        self.connection_requests.append(index)
                     else:
                         print('ERROR: Agent has no neighbors')
                         exit()
@@ -98,8 +100,8 @@ class Agent:
                 path, message = message_content
                 self.send_indirect_path(path, message)
             elif message_type == CONNECTION_REQUEST:
-                self.print_info(f'Agent {self.index} processing connection_request')
                 source_index, target_index, path, visited = message_content
+                self.print_info(f'Agent {self.index} processing connection_request - target={target_index}, source={source_index}, path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
                 if self.index == target_index:
                     self.indirect_neighbors.append((source_index, path[::-1]))
                     self.send_indirect_path(path[::-1], (CONNECTION_SUCCESSFUL,
@@ -115,7 +117,7 @@ class Agent:
                     if agent.index not in visited:
                         self.print_info(
                             f'Agent {self.index} transferring connection_request with target Agent {target_index}'
-                            f' to Agent {agent.index}')
+                            f' to Agent {agent.index} - path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
                         self.new_messages.append({'source': self, 'agent': agent,
                                                   'message': (
                                                       CONNECTION_REQUEST,
@@ -128,9 +130,11 @@ class Agent:
                     if sent:
                         self.print_info(
                             f'Agent {self.index} transferring connection_request with target Agent {target_index}'
-                            f' to Agent {path[-1]}')
+                            f' to Agent {path[-1]} - path={path}, visited={visited}, neighbors={[n.index for n in self.neighbors]}')
                 if not sent:
-                    print('ERROR: Connection Request failed unexpectedly')
+                    print(f'ERROR: Connection Request failed unexpectedly - path={path}, visited={visited}')
+                    print(self.index)
+                    print({n.index for n in self.neighbors})
                     exit()
             elif message_type == CONNECTION_SUCCESSFUL:
                 path = message_content
@@ -222,6 +226,7 @@ class Agent:
                     self.new_messages.append({'source': self, 'agent': agent, 'message': (INDIRECT, (path[1:], message))})
                 return
         print(f'ERROR: Indirect Message Failed. Path = {path}, Message = {message}')
+        exit()
 
     def is_consistent(self, number):
         for index, agent_number in self.agent_view:

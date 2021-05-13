@@ -44,13 +44,13 @@ def main():
         node_radius = 50
     elif EXAMPLE == 2:
         connections = [
-            [4, 2, 3],
+            [4, 2],
             [1, 7, 3],
             [2, 10],
             [1, 5],
             [4, 12, 6],
             [5, 11, 7],
-            [6, 8],
+            [2, 6, 8],
             [7, 11, 9],
             [8, 16, 10],
             [3, 9],
@@ -160,7 +160,7 @@ def main():
             drawing_utils.add_animation(
                 GraphMessageAnimation('Graph1', source_index, target_index, message_type,
                                       callback=lambda agent, message: agent.message(message),
-                                      callback_params=[msg['agent'], msg['message']]))
+                                      callback_params=[msg['agent'], msg['message']], delay=delay))
             times[source_index * len(agents) + target_index] += 1
 
         drawing_utils.draw_csp_graph('Graph1', screen, graph_matrix, node_colors=[

@@ -7,7 +7,7 @@ import ctypes
 from Agent import Agent
 from drawing_utils import GraphMessageAnimation
 
-NUM_COLORS = 3
+NUM_COLORS = 2
 WINDOW_OUTLINE = 25
 EXAMPLE = 2
 
